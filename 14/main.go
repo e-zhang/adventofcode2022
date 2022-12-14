@@ -98,6 +98,7 @@ func main() {
 	}
 
 	fmt.Println(len(sands))
+	Print(source, floor, rocks, sands)
 }
 
 func Fall(source Coord, floor int, rocks, sands map[Coord]struct{}) Coord {
@@ -127,6 +128,32 @@ func Fall(source Coord, floor int, rocks, sands map[Coord]struct{}) Coord {
 	}
 
 	return sand
+}
 
-	return sand
+func Print(source Coord, maxY int, rocks, sands map[Coord]struct{}) {
+	maxX := 0
+	minX := 500
+
+	for k := range sands {
+		if k.x < minX {
+			minX = k.x
+		}
+
+		if k.x > maxX {
+			maxX = k.x
+		}
+	}
+
+	for y := 0; y < maxY; y++ {
+		for x := minX - 1; x < maxX+1; x++ {
+			if _, ok := rocks[Coord{x, y}]; ok {
+				fmt.Printf("#")
+			} else if _, ok := sands[Coord{x, y}]; ok {
+				fmt.Printf("o")
+			} else {
+				fmt.Printf(".")
+			}
+		}
+		fmt.Println()
+	}
 }
