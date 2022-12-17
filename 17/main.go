@@ -66,8 +66,31 @@ func (r *Rock) MaxY() int {
 	return r.pos.Y + y
 }
 
-func (r *Rock) Fall() {
+func (r *Rock) Fall(chamber *Chamber) bool {
+	if r.pos.Y > len(chamber.units) {
+		r.pos.Y--
+		return true
+	}
+
+	if len(chamber.units) == 0 {
+		return false
+	}
+
+	for _, pat := range r.pattern {
+		pt := r.pos.Add(pat)
+		if pt.Y > len(chamber.units) {
+			continue
+		}
+		if pt.Y == 0 {
+			return false
+		}
+		if chamber.units[pt.Y-1][pt.X] != '.' {
+			return false
+		}
+	}
+
 	r.pos.Y--
+	return true
 }
 
 func (r *Rock) Jet(c *Chamber, j rune) {
@@ -128,31 +151,6 @@ func (c *Chamber) Fill(rock *Rock) {
 
 		c.units[pt.Y][pt.X] = '#'
 	}
-}
-
-func (c *Chamber) CanFall(rock *Rock) bool {
-	if rock.pos.Y > len(c.units) {
-		return true
-	}
-
-	if len(c.units) == 0 {
-		return false
-	}
-
-	for _, pat := range rock.pattern {
-		pt := rock.pos.Add(pat)
-		if pt.Y > len(c.units) {
-			continue
-		}
-		if pt.Y == 0 {
-			return false
-		}
-		if c.units[pt.Y-1][pt.X] != '.' {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (c *Chamber) Tops() []int {
@@ -247,10 +245,9 @@ func main() {
 			rock.Jet(chamber, c)
 			// chamber.Draw(rock, 0)
 
-			if !chamber.CanFall(rock) {
+			if !rock.Fall(chamber) {
 				break
 			}
-			rock.Fall()
 			// chamber.Draw(rock, 0)
 		}
 
