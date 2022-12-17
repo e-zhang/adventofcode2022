@@ -3,17 +3,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
-
-	"github.com/ernestosuarez/itertools"
 )
 
 type Valve struct {
+	id     int
 	name   string
 	flow   int
 	valves []*Valve
@@ -56,7 +54,7 @@ func main() {
 		conns := sub[0][3]
 
 		connections[name] = conns
-		valves[name] = &Valve{name: name, flow: flow}
+		valves[name] = &Valve{id: len(valves), name: name, flow: flow}
 	}
 
 	for k, v := range valves {
@@ -65,125 +63,101 @@ func main() {
 		for i := range conns {
 			v.valves[i] = valves[conns[i]]
 		}
-		fmt.Println(v.String())
 	}
 
 	aa := valves["AA"]
-	costs := make(map[string]map[string]int)
-	for k, v := range valves {
-		for k2, v2 := range valves {
-			cost := getCost(v, v2)
-			if _, ok := costs[k]; !ok {
-				costs[k] = make(map[string]int)
-			}
-			costs[k][k2] = cost
-		}
+
+	byId := make([]*Valve, len(valves))
+	for _, v := range valves {
+		byId[v.id] = v
 	}
 
-	opened := make(map[string]struct{})
-	fmt.Println(pressureReleased(aa, valves, 30, opened, costs))
+	distances := buildCosts(valves)
 
 	var names []string
 	for k, v := range valves {
 		if v.flow > 0 {
 			names = append(names, k)
+		} else {
+			delete(valves, k)
 		}
 	}
+
+	opened := make(map[string]struct{})
+	fmt.Println(pressureReleased(aa, valves, 30, opened, distances))
+
+	state := make(map[int]int)
+	visit(aa, valves, 0, 30, 0, distances, state)
 
 	max := 0
-	var mut sync.Mutex
-	for i := 1; i < len(names); i++ {
-		for v := range itertools.CombinationsStr(names, i) {
-			go func() {
-				mine := make(map[string]*Valve)
-				elephant := make(map[string]*Valve)
-				opened := make(map[string]struct{})
-				for _, n := range v {
-					mine[n] = valves[n]
-				}
-				for _, n := range names {
-					if _, ok := mine[n]; !ok {
-						elephant[n] = valves[n]
-					}
-				}
-				p := pressureReleased(aa, elephant, 26, opened, costs) + pressureReleased(aa, mine, 26, opened, costs)
-				mut.Lock()
-				if p > max {
-					max = p
-				}
-				mut.Unlock()
-			}()
+	for _, v := range state {
+		if v > max {
+			max = v
 		}
 	}
+	fmt.Println(max)
 
+	state = make(map[int]int)
+	max = 0
+	visit(aa, valves, 0, 26, 0, distances, state)
+	for p1, v1 := range state {
+		for p2, v2 := range state {
+			if (p1 & p2) == 0 {
+				if v1+v2 > max {
+					max = v1 + v2
+				}
+			}
+		}
+	}
 	fmt.Println(max)
 }
 
-func pressureReleased(source *Valve, valves map[string]*Valve, time int, opened map[string]struct{}, costs map[string]map[string]int) int {
-	if time <= 0 {
-		return 0
-	}
-
-	max := 0
-	for _, mv := range moves(source, valves, time, opened, costs) {
-		opened[mv.next.name] = struct{}{}
-		p := mv.score + pressureReleased(mv.next, valves, time-mv.cost-1, opened, costs)
-		delete(opened, mv.next.name)
-
-		if p > max {
-			max = p
+func buildCosts(valves map[string]*Valve) [][]int {
+	distances := make([][]int, len(valves))
+	for i := range distances {
+		distances[i] = make([]int, len(valves))
+		for j := range distances[i] {
+			distances[i][j] = math.MaxInt32
 		}
 	}
 
-	return max
-}
-
-type Move struct {
-	cost  int
-	score int
-	next  *Valve
-}
-
-func moves(source *Valve, valves map[string]*Valve, time int, opened map[string]struct{}, costs map[string]map[string]int) []Move {
-	var moves []Move
 	for _, v := range valves {
-		_, ok := opened[v.name]
-		if v == source || ok || v.flow == 0 {
-			continue
+		for _, u := range v.valves {
+			distances[v.id][u.id] = 1
 		}
-
-		c := costs[source.name][v.name]
-		score := v.flow * (time - c - 1)
-
-		moves = append(moves, Move{c, score, v})
+		distances[v.id][v.id] = 0
 	}
 
-	sort.Slice(moves, func(i, j int) bool {
-		return moves[i].score < moves[j].score
-	})
-
-	return moves
-}
-
-func getCost(source *Valve, dest *Valve) int {
-	q := []*Valve{source}
-	distances := make(map[string]int)
-	distances[source.name] = 0
-	for len(q) != 0 {
-		cur := q[0]
-		q = q[1:]
-		if cur == dest {
-			break
-		}
-
-		for _, v := range cur.valves {
-			_, ok := distances[v.name]
-			if !ok || distances[v.name] > distances[cur.name]+1 {
-				distances[v.name] = distances[cur.name] + 1
-				q = append(q, v)
+	for k := 0; k < len(valves); k++ {
+		for i := 0; i < len(valves); i++ {
+			for j := 0; j < len(valves); j++ {
+				cur := distances[i][j]
+				if d := distances[i][k] + distances[k][j]; cur > d {
+					distances[i][j] = d
+				}
 			}
 		}
 	}
 
-	return distances[dest.name]
+	return distances
+}
+
+func visit(src *Valve, valves map[string]*Valve, opened int, time int, released int, costs [][]int, state map[int]int) {
+	if time <= 0 {
+		return
+	}
+
+	if r, ok := state[opened]; !ok || released > r {
+		state[opened] = released
+	}
+
+	for _, v := range valves {
+		if opened&(1<<v.id) != 0 {
+			continue
+		}
+
+		cost := (time - costs[src.id][v.id] - 1)
+		score := v.flow * cost
+		visit(v, valves, opened|(1<<v.id), cost, released+score, costs, state)
+	}
 }
