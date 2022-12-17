@@ -67,11 +67,6 @@ func main() {
 
 	aa := valves["AA"]
 
-	byId := make([]*Valve, len(valves))
-	for _, v := range valves {
-		byId[v.id] = v
-	}
-
 	distances := buildCosts(valves)
 
 	var names []string
@@ -83,9 +78,7 @@ func main() {
 		}
 	}
 
-	opened := make(map[string]struct{})
-	fmt.Println(pressureReleased(aa, valves, 30, opened, distances))
-
+	// part 1
 	state := make(map[int]int)
 	visit(aa, valves, 0, 30, 0, distances, state)
 
@@ -97,6 +90,7 @@ func main() {
 	}
 	fmt.Println(max)
 
+	// part 2
 	state = make(map[int]int)
 	max = 0
 	visit(aa, valves, 0, 26, 0, distances, state)
