@@ -23,8 +23,6 @@ type Cost struct {
 	ores      int
 	clays     int
 	obsidians int
-
-	totalOres int
 }
 
 func (c Cost) CanBuild(ores, clays, obsidians int) bool {
@@ -123,10 +121,10 @@ func main() {
 
 		bp := Blueprint{
 			id:        id,
-			ores:      Cost{ORE, ore, 0, 0, ore},
-			clays:     Cost{CLAY, clayOre, 0, 0, clayOre},
-			obsidians: Cost{OBSIDIAN, obsidianOre, obsidianClay, 0, obsidianOre + obsidianClay*clayOre},
-			geodes:    Cost{GEODE, geodeOre, 0, geodeObsidian, geodeOre + geodeObsidian*(obsidianOre+obsidianClay*clayOre)},
+			ores:      Cost{ORE, ore, 0, 0},
+			clays:     Cost{CLAY, clayOre, 0, 0},
+			obsidians: Cost{OBSIDIAN, obsidianOre, obsidianClay, 0},
+			geodes:    Cost{GEODE, geodeOre, 0, geodeObsidian},
 		}
 
 		blueprints = append(blueprints, bp)
