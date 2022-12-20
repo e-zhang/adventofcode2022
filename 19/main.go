@@ -78,6 +78,18 @@ func (s *State) BuildRobot(c Cost) {
 }
 
 func (s *State) ShouldBuild(c Cost, bp Blueprint) bool {
+	skip := false
+	for _, r := range s.skipped {
+		if r == c.robot {
+			skip = true
+			break
+		}
+	}
+
+	if skip {
+		return false
+	}
+
 	switch c.robot {
 	case ORE:
 		return s.oreRobots < bp.ores.ores ||
@@ -181,18 +193,6 @@ func simulate(bp Blueprint, state State, dp map[string]int) int {
 		bp.ores,
 	} {
 		if !state.ShouldBuild(c, bp) {
-			continue
-		}
-
-		skip := false
-		for _, r := range start.skipped {
-			if r == c.robot {
-				skip = true
-				break
-			}
-		}
-
-		if skip {
 			continue
 		}
 
