@@ -1,0 +1,50 @@
+diff --git a/21/main.go b/21/main.go
+index a829dc5..772d732 100644
+--- a/21/main.go
++++ b/21/main.go
+@@ -33,9 +33,13 @@ type Monkey struct {
+ 	op    *Op
+ }
+ 
+-func (m *Monkey) Resolve(monkeys map[string]Monkey, human bool) (bool, int) {
++func (m *Monkey) Resolve(monkeys map[string]Monkey, human bool) (bool, complex128) {
++	if human && m.id == HUMAN {
++		return false, complex(0, 1)
++	}
++
+ 	if m.op == nil {
+-		return human && m.id == HUMAN, m.value
++		return human && m.id == HUMAN, complex(float64(m.value), 0)
+ 	}
+ 
+ 	m1 := monkeys[m.op.lhs]
+@@ -59,12 +63,14 @@ func (m *Monkey) Resolve(monkeys map[string]Monkey, human bool) (bool, int) {
+ 		return false, x * y
+ 	case DIV:
+ 		return false, x / y
++	case EQ:
++		return false, x - y
+ 	}
+ 
+ 	panic(m.op)
+ }
+ 
+-func (m *Monkey) Solve(monkeys map[string]Monkey, res int) int {
++func (m *Monkey) Solve(monkeys map[string]Monkey, res complex128) complex128 {
+ 	if m.id == HUMAN {
+ 		return res
+ 	}
+@@ -146,8 +152,11 @@ func main() {
+ 
+ 	root := monkeys["root"]
+ 	_, res := root.Resolve(monkeys, false)
+-	fmt.Println(res)
++	fmt.Println(int(real(res)))
+ 
+ 	root.op.operation = EQ
+-	fmt.Println(root.Solve(monkeys, 0))
++	_, res = root.Resolve(monkeys, true)
++	fmt.Println(int(-real(res) / imag(res)))
++
++	// fmt.Println(root.Solve(monkeys, 0))
+ }
