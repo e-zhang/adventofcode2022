@@ -220,7 +220,8 @@ func main() {
 		allBlizzards,
 		0,
 	}
-	Simulate(state, map[Key]int{}, start, time)
+	// SimulateDFS(state, map[Key]int{}, start, time)
+	SimulateBFS(state, time)
 	fmt.Println(state.min)
 
 	// part 2
@@ -229,18 +230,20 @@ func main() {
 	state.start = end
 	state.end = start
 	state.min = 0
-	Simulate(state, map[Key]int{}, end, time)
+	// SimulateDFS(state, map[Key]int{}, end, time)
+	SimulateBFS(state, time)
 	fmt.Println("back", state.min)
 
 	time = state.min
 	state.start = start
 	state.end = end
 	state.min = 0
-	Simulate(state, map[Key]int{}, start, time)
+	// SimulateDFS(state, map[Key]int{}, start, time)
+	SimulateBFS(state, time)
 	fmt.Println("there", state.min)
 }
 
-func Simulate(state *State, visited map[Key]int, pos image.Point, time int) {
+func SimulateDFS(state *State, visited map[Key]int, pos image.Point, time int) {
 	if state.min > 0 && state.min <= time {
 		return
 	}
@@ -284,7 +287,55 @@ func Simulate(state *State, visited map[Key]int, pos image.Point, time int) {
 		next := pos.Add(opt)
 
 		if state.IsValid(next, time+1) {
-			Simulate(state, visited, next, time+1)
+			SimulateDFS(state, visited, next, time+1)
+		}
+	}
+}
+
+func SimulateBFS(state *State, time int) {
+	visited := make(map[Key]struct{})
+
+	options := []image.Point{
+		image.Pt(0, 1),
+		image.Pt(1, 0),
+		image.Pt(0, 0),
+		image.Pt(-1, 0),
+		image.Pt(0, -1),
+	}
+
+	q := make([]struct {
+		p image.Point
+		t int
+	}, 0)
+	q = append(q, struct {
+		p image.Point
+		t int
+	}{state.start, time})
+
+	for len(q) > 0 {
+		cur := q[0]
+		q = q[1:]
+
+		if state.end.Eq(cur.p) {
+			state.min = cur.t
+			return
+		}
+
+		if _, ok := visited[Key{cur.p, cur.t % len(state.blizzards)}]; ok {
+			continue
+		}
+
+		for _, opt := range options {
+			next := cur.p.Add(opt)
+
+			if state.IsValid(next, cur.t+1) {
+				q = append(q, struct {
+					p image.Point
+					t int
+				}{next, cur.t + 1})
+
+				visited[Key{cur.p, cur.t % len(state.blizzards)}] = struct{}{}
+			}
 		}
 	}
 }
