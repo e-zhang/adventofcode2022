@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image"
 	"os"
 	"strconv"
 )
@@ -115,106 +116,32 @@ func (s *State) MovePart2(grid *Grid) bool {
 	dr := s.row - face.row
 	dc := s.col - face.col
 
+	delta := step(s.facing)
+
 	news := *s
-	switch s.facing {
-	case LEFT:
-		c := (dc - 1)
-		news.col = face.col + c
-		if c < 0 {
-			next := face.neighbors[s.facing]
-			facing := next.Facing(face)
-			switch facing {
-			case RIGHT:
-				news.col = next.col + next.width - 1
-				news.row = next.row + dr
-			case LEFT:
-				news.col = next.col
-				news.row = next.row + next.height - 1 - dr
-				news.facing = RIGHT
-			case UP:
-				news.row = next.row
-				news.col = next.col + dr
-				news.facing = DOWN
-			case DOWN:
-				news.row = next.row + next.height - 1
-				news.col = next.col + next.width - 1 - dr
-				news.facing = UP
-			}
+	pt := image.Pt(dc, dr).Add(delta)
+	news.row = pt.Y + face.row
+	news.col = pt.X + face.col
+
+	if pt.X >= face.side || pt.X < 0 || pt.Y >= face.side || pt.Y < 0 {
+		next := face.neighbors[s.facing]
+		rot := (4 - calcFaceRotation(face, next)) % 4
+
+		orig := pt
+		pt = rotate(orig, rot)
+		offset := rotate(image.Pt(face.side, face.side), rot)
+		if offset.X < 0 {
+			pt.X += face.side - 1
 		}
-	case RIGHT:
-		c := (dc + 1)
-		news.col = face.col + c
-		if c >= face.width {
-			next := face.neighbors[news.facing]
-			facing := next.Facing(face)
-			switch facing {
-			case RIGHT:
-				news.col = next.col + next.width - 1
-				news.row = next.row + next.height - 1 - dr
-				news.facing = LEFT
-			case LEFT:
-				news.col = next.col
-				news.row = next.row + dr
-			case UP:
-				news.row = next.row
-				news.col = next.col + next.width - 1 - dr
-				news.facing = DOWN
-			case DOWN:
-				news.row = next.row + next.height - 1
-				news.col = next.col + dr
-				news.facing = UP
-			}
+		if offset.Y < 0 {
+			pt.Y += face.side - 1
 		}
-	case UP:
-		r := (dr - 1)
-		news.row = face.row + r
-		if r < 0 {
-			next := face.neighbors[news.facing]
-			facing := next.Facing(face)
-			switch facing {
-			case LEFT:
-				news.row = next.row + dc
-				news.col = next.col
-				news.facing = RIGHT
-			case RIGHT:
-				news.row = next.row + next.height - 1 - dc
-				news.col = next.col + next.width - 1
-				news.facing = LEFT
-			case UP:
-				news.row = next.row
-				news.col = next.col + next.width - 1 - dc
-				news.facing = DOWN
-			case DOWN:
-				news.row = next.row + next.height - 1
-				news.col = next.col + dc
-			}
-		}
-	case DOWN:
-		r := (dr + 1)
-		news.row = face.row + r
-		if r >= face.height {
-			next := face.neighbors[news.facing]
-			facing := next.Facing(face)
-			switch facing {
-			case LEFT:
-				news.row = next.row + next.height - 1 - dc
-				news.col = next.col
-				news.facing = RIGHT
-			case RIGHT:
-				news.row = next.row + dc
-				news.col = next.col + next.width - 1
-				news.facing = LEFT
-			case UP:
-				news.row = next.row
-				news.col = next.col + dc
-			case DOWN:
-				news.row = next.row + next.height - 1
-				news.col = next.col + next.width - 1 - dc
-				news.facing = UP
-			}
-		}
-	default:
-		panic(s.facing)
+		pt.X = (pt.X + face.side) % face.side
+		pt.Y = (pt.Y + face.side) % face.side
+
+		news.facing = (next.Facing(face) + 2) % 4
+		news.row = next.row + pt.Y
+		news.col = next.col + pt.X
 	}
 
 	if grid.Get(news.row, news.col).space != OPEN {
@@ -243,10 +170,10 @@ type Face struct {
 
 	neighbors []*Face
 
-	row    int
-	col    int
-	width  int
-	height int
+	row int
+	col int
+
+	side int
 }
 
 func (f *Face) Facing(n *Face) int {
@@ -486,21 +413,21 @@ func labelFaces(grid [][]Cell) []*Face {
 	var faces []*Face
 
 	face := 1
-	w, h := faceWidthAndHeight(grid)
+	side := faceSide(grid)
 
-	for i := 0; i < len(grid)/h; i++ {
-		for j := 0; j < len(grid[0])/w; j++ {
-			if grid[i*h][j*w].space == EMPTY {
+	for i := 0; i < len(grid)/side; i++ {
+		for j := 0; j < len(grid[0])/side; j++ {
+			if grid[i*side][j*side].space == EMPTY {
 				continue
 			}
 
-			for r := i * h; r < (i+1)*h; r++ {
-				for c := j * w; c < (j+1)*w; c++ {
+			for r := i * side; r < (i+1)*side; r++ {
+				for c := j * side; c < (j+1)*side; c++ {
 					grid[r][c].face = face
 				}
 			}
 
-			faces = append(faces, &Face{face, make([]*Face, 4), i * h, j * w, w, h})
+			faces = append(faces, &Face{face, make([]*Face, 4), i * side, j * side, side})
 			face++
 		}
 	}
@@ -541,8 +468,8 @@ func labelFaces(grid [][]Cell) []*Face {
 	return faces
 }
 
-func faceWidthAndHeight(grid [][]Cell) (int, int) {
-	width := len(grid[0])
+func faceSide(grid [][]Cell) int {
+	side := len(grid[0])
 	for _, r := range grid {
 		start := 0
 		for ; start < len(r); start++ {
@@ -556,34 +483,13 @@ func faceWidthAndHeight(grid [][]Cell) (int, int) {
 				break
 			}
 		}
-		w := end - start
-		if w < width {
-			width = w
+		s := end - start
+		if s < side {
+			side = s
 		}
 	}
 
-	height := len(grid)
-	for i := 0; i < len(grid[0]); i++ {
-		start := 0
-		for ; start < len(grid); start++ {
-			if grid[start][i].space != EMPTY {
-				break
-			}
-		}
-		end := start + 1
-		for ; end < len(grid); end++ {
-			if grid[end][i].space == EMPTY {
-				break
-			}
-		}
-
-		h := end - start
-		if h < height {
-			height = h
-		}
-	}
-
-	return width, height
+	return side
 }
 
 func loopFaces(face, next *Face, dir int) {
@@ -613,8 +519,8 @@ func loopFaces(face, next *Face, dir int) {
 
 func checkFaces(f *Face, grid [][]Cell, delta [][]int) int {
 	for _, d := range delta {
-		r := f.row + f.height*d[0]
-		c := f.col + f.width*d[1]
+		r := f.row + f.side*d[0]
+		c := f.col + f.side*d[1]
 
 		if r < 0 || r >= len(grid) || c >= len(grid[r]) || c < 0 {
 			continue
@@ -634,4 +540,147 @@ func calcFaceRotation(from *Face, to *Face) int {
 
 	expected := (2 + facing) % 4
 	return (reverse - expected + 4) % 4
+}
+
+func rotate(v image.Point, rot int) image.Point {
+	sin := []int{0, -1, 0, 1}
+	cos := []int{1, 0, -1, 0}
+
+	x := v.X*cos[rot] - v.Y*sin[rot]
+	y := v.X*sin[rot] + v.Y*cos[rot]
+
+	return image.Pt(x, y)
+}
+
+func step(dir int) image.Point {
+	switch dir {
+	case LEFT:
+		return image.Pt(-1, 0)
+	case RIGHT:
+		return image.Pt(1, 0)
+	case UP:
+		return image.Pt(0, -1)
+	case DOWN:
+		return image.Pt(0, 1)
+	}
+
+	panic(dir)
+}
+
+func (s *State) oldPart2(grid *Grid) bool {
+	id := grid.Get(s.row, s.col).face
+	face := grid.faces[id-1]
+
+	dr := s.row - face.row
+	dc := s.col - face.col
+
+	news := *s
+	switch s.facing {
+	case LEFT:
+		c := (dc - 1)
+		news.col = face.col + c
+		if c < 0 {
+			next := face.neighbors[s.facing]
+			facing := next.Facing(face)
+			switch facing {
+			case RIGHT:
+				news.col = next.col + next.side - 1
+				news.row = next.row + dr
+			case LEFT:
+				news.col = next.col
+				news.row = next.row + next.side - 1 - dr
+				news.facing = RIGHT
+			case UP:
+				news.row = next.row
+				news.col = next.col + dr
+				news.facing = DOWN
+			case DOWN:
+				news.row = next.row + next.side - 1
+				news.col = next.col + next.side - 1 - dr
+				news.facing = UP
+			}
+		}
+	case RIGHT:
+		c := (dc + 1)
+		news.col = face.col + c
+		if c >= face.side {
+			next := face.neighbors[news.facing]
+			facing := next.Facing(face)
+			switch facing {
+			case RIGHT:
+				news.col = next.col + next.side - 1
+				news.row = next.row + next.side - 1 - dr
+				news.facing = LEFT
+			case LEFT:
+				news.col = next.col
+				news.row = next.row + dr
+			case UP:
+				news.row = next.row
+				news.col = next.col + next.side - 1 - dr
+				news.facing = DOWN
+			case DOWN:
+				news.row = next.row + next.side - 1
+				news.col = next.col + dr
+				news.facing = UP
+			}
+		}
+	case UP:
+		r := (dr - 1)
+		news.row = face.row + r
+		if r < 0 {
+			next := face.neighbors[news.facing]
+			facing := next.Facing(face)
+			switch facing {
+			case LEFT:
+				news.row = next.row + dc
+				news.col = next.col
+				news.facing = RIGHT
+			case RIGHT:
+				news.row = next.row + next.side - 1 - dc
+				news.col = next.col + next.side - 1
+				news.facing = LEFT
+			case UP:
+				news.row = next.row
+				news.col = next.col + next.side - 1 - dc
+				news.facing = DOWN
+			case DOWN:
+				news.row = next.row + next.side - 1
+				news.col = next.col + dc
+			}
+		}
+	case DOWN:
+		r := (dr + 1)
+		news.row = face.row + r
+		if r >= face.side {
+			next := face.neighbors[news.facing]
+			facing := next.Facing(face)
+			switch facing {
+			case LEFT:
+				news.row = next.row + next.side - 1 - dc
+				news.col = next.col
+				news.facing = RIGHT
+			case RIGHT:
+				news.row = next.row + dc
+				news.col = next.col + next.side - 1
+				news.facing = LEFT
+			case UP:
+				news.row = next.row
+				news.col = next.col + dc
+			case DOWN:
+				news.row = next.row + next.side - 1
+				news.col = next.col + next.side - 1 - dc
+				news.facing = UP
+			}
+		}
+	default:
+		panic(s.facing)
+	}
+
+	if grid.Get(news.row, news.col).space != OPEN {
+		return false
+	}
+
+	*s = news
+	return true
+
 }
